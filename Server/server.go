@@ -41,8 +41,13 @@ func main() {
 	}
 
 	log.Println("[INFO] - Les deux joueurs ont choisi leur couleur")
-	server.player1.send("ready\n" + server.player2.response + "0\n")
-	server.player2.send("ready\n" + server.player1.response + "1\n")
+	server.player1.send("ready\n")
+	server.player2.send("ready\n")
+
+	server.player1.response = strings.TrimSuffix(server.player1.response, "\n")
+	server.player2.response = strings.TrimSuffix(server.player2.response, "\n")
+	server.player1.send(server.player2.response + ", 0\n")
+	server.player2.send(server.player1.response + ", 1\n")
 
 	// Partie
 	turn := 1
@@ -55,9 +60,26 @@ func main() {
 			turn = 3 - turn
 		}
 		log.Println("[INFO] - Partie terminée")
+		println()
 		// Fin de la partie
-		// Sync
-		time.Sleep(time.Second * 20)
+
+		log.Println("[INFO] - Synchronisation des joueurs...")
+		go server.player1.receive()
+		go server.player2.receive()
+
+		for len(server.player1.response) == 0 || len(server.player2.response) == 0 {
+			time.Sleep(time.Millisecond * 100)
+		}
+
+		log.Println("[INFO] -  Synchronisation de la partie")
+		if turn == 1 {
+			server.player1.send("0\n")
+			server.player2.send("1\n")
+		} else {
+			server.player1.send("1\n")
+			server.player2.send("0\n")
+		}
+		log.Println("[INFO] - Partie synchronisée")
 	}
 
 }
