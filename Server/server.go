@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const debug = true
+
 type player struct {
 	handler  *bufio.ReadWriter
 	response string
@@ -67,6 +69,8 @@ func main() {
 		go server.player1.receive()
 		go server.player2.receive()
 
+		time.Sleep(time.Millisecond * 100)
+
 		for len(server.player1.response) == 0 || len(server.player2.response) == 0 {
 			time.Sleep(time.Millisecond * 100)
 		}
@@ -80,6 +84,7 @@ func main() {
 			server.player2.send("0\n")
 		}
 		log.Println("[INFO] - Partie synchronisée")
+		time.Sleep(time.Millisecond * 100)
 	}
 
 }
@@ -88,7 +93,7 @@ func (server *server) playRound(playerId int) bool {
 	player := server.getPlayer(playerId)
 	other := server.getPlayer(3 - playerId)
 
-	log.Println("[INFO] - Début du tour du joueur", playerId)
+	log.Println("[INFO] - Début du tour du joueur ", playerId)
 
 	// Attente du choix du joueur
 	player.receive()
@@ -144,8 +149,10 @@ func (server *server) getPlayer(id int) *player {
 func (player *player) send(msg string) {
 	player.handler.WriteString(msg)
 	player.handler.Flush()
-	//msg = strings.Replace(msg, "\n", "", -1)
-	//log.Println("[DEBUG] - Envoi du message au joueur", msg)
+	if debug {
+		msg = strings.Replace(msg, "\n", "", -1)
+		log.Println("[DEBUG] - Envoi du message au joueur : ", msg)
+	}
 }
 
 func (player *player) receive() {
@@ -156,5 +163,7 @@ func (player *player) receive() {
 		return
 	}
 	player.response = msg
-	//log.Print("[DEBUG] - Réception du message du joueur", msg)
+	if debug {
+		log.Print("[DEBUG] - Réception du message du joueur : ", msg)
+	}
 }

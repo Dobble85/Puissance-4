@@ -9,6 +9,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+const debug = true
+
 type server struct {
 	handler  *bufio.ReadWriter
 	ready    bool
@@ -39,17 +41,23 @@ func (g *game) getColor() {
 func (s *server) send(message string) {
 	s.handler.WriteString(message)
 	s.handler.Flush()
-	//log.Print("[DEBUG] - Message envoyé au serveur : ", message)
+	if debug {
+		log.Print("[DEBUG] - Message envoyé au serveur : ", message)
+	}
 }
 
 func (s *server) receive() {
 	s.response = ""
 	s.response, _ = s.handler.ReadString('\n')
-	//log.Print("[DEBUG] - Message reçu du serveur : ", s.response)
+	if debug {
+		log.Print("[DEBUG] - Message reçu du serveur : ", s.response)
+	}
 }
 
 func (s *server) waitUntilServerIsReady() {
 	s.receive()
 	s.ready = true
-	//log.Println("[DEBUG] - Serveur prêt")
+	if debug {
+		log.Println("[DEBUG] - Serveur prêt")
+	}
 }
