@@ -20,7 +20,7 @@ func (g *game) Update() error {
 		if g.titleUpdate() && g.server.ready { // Modification
 			g.server.ready = false               //Ajout
 			g.server.wait = false                // Ajout
-			go g.server.waitUntilServerIsReady() // Ajout
+			go g.server.waitUntilServerIsReady() // Ajout -- A modifier pour les couleurs
 			g.gameState++
 		}
 	case colorSelectState:
@@ -119,12 +119,12 @@ func (g *game) colorSelectUpdate() bool {
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 		// Ajout de l'envoi de la couleur au serveur
-		g.server.send(fmt.Sprint(g.p1Color) + "\n")
+		g.server.send(fmt.Sprint(g.p1Color) + ", true\n")
 		g.server.wait = true
 		// Fin de l'ajout
 		return true
 	}
-
+	g.server.send(fmt.Sprint(g.p1Color) + ", false\n")
 	return false
 }
 
