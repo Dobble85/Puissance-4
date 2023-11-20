@@ -43,16 +43,15 @@ func init() {
 // Création, paramétrage et lancement du jeu.
 func main() {
 	g := game{server: &server{}}
-
+	ip := ""
 	// Ajout de la connexion au serveur
-	if len(os.Args) != 2 {
+	if len(os.Args) > 2 {
 		log.Println("Usage:", os.Args[0], "ip")
 		return
-	}
-	ip := os.Args[1]
-	if ip == "" {
-		log.Println("Usage:", os.Args[0], "ip")
-		return
+	} else if len(os.Args) == 1 {
+		ip = "localhost:8080"
+	} else {
+		ip = os.Args[1]
 	}
 
 	log.Println("[INFO] - Je me connecte au serveur")
