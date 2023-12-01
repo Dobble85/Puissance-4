@@ -3,39 +3,16 @@ package main
 import (
 	"bufio"
 	"log"
-	"strconv"
 	"strings"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 const debug = true
 
 type server struct {
-	handler  *bufio.ReadWriter
-	ready    bool
-	wait     bool
-	response string
-}
-
-func (g *game) getColor() {
-	g.server.receive()
-	g.server.response = strings.TrimSuffix(g.server.response, "\n")
-	temp := strings.Split(g.server.response, ", ")
-	g.p2Color, _ = strconv.Atoi(temp[0])
-	g.turn, _ = strconv.Atoi(temp[1])
-	g.server.wait = false
-
-	if g.turn != p1Turn {
-		log.Println("Je suis le joueur 2")
-		ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
-		go g.server.receive()
-	} else {
-		log.Println("Je suis le joueur 1")
-		ebiten.SetWindowTitle("Puissance 4 - A toi de jouer !")
-	}
-
-	log.Println("Début de la partie")
+	handler *bufio.ReadWriter
+	channel chan string
+	ready   bool
+	wait    bool
 }
 
 func (s *server) send(message string) {
@@ -47,17 +24,37 @@ func (s *server) send(message string) {
 }
 
 func (s *server) receive() {
-	s.response = ""
-	s.response, _ = s.handler.ReadString('\n')
+	response, _ := s.handler.ReadString('\n')
+	s.channel <- strings.TrimSuffix(response, "\n")
+
 	if debug {
-		log.Print("[DEBUG] - Message reçu du serveur : ", s.response)
+		log.Print("[DEBUG] - Message reçu du serveur : ", response)
 	}
 }
 
 func (s *server) waitUntilServerIsReady() {
-	s.receive()
-	s.ready = true
-	if debug {
-		log.Println("[DEBUG] - Serveur prêt")
+	go s.receive()
+	for {
+		select {
+		case <-s.channel:
+			s.ready = true
+			log.Println("Le serveur est prêt")
+			return
+		default:
+			// Do nothing
+		}
+	}
+}
+
+func (g *game) getColor() {
+	go g.server.receive()
+	for {
+		select {
+		case message := <-g.server.channel:
+				g.
+			return
+		default:
+			// Do nothing
+		}
 	}
 }

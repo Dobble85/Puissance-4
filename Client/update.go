@@ -18,15 +18,14 @@ func (g *game) Update() error {
 	switch g.gameState {
 	case titleState:
 		if g.titleUpdate() && g.server.ready { // Modification
-			g.server.ready = false               //Ajout
-			g.server.wait = false                // Ajout
-			go g.server.waitUntilServerIsReady() // Ajout -- A modifier pour les couleurs
+			g.server.ready = false //Ajout
+			g.server.wait = false  // Ajout
+			go g.getColor()        // Ajout -- A modifier pour les couleurs
 			g.gameState++
 		}
 	case colorSelectState:
 		if g.colorSelectUpdate() && g.server.ready { // Modification
 			g.server.ready = false //Ajout
-			go g.getColor()        // Ajout
 			g.gameState++
 		}
 	case playState:

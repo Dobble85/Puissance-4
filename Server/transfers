@@ -1,0 +1,13 @@
+s -> p* : '%id\n'
+
+// Colors
+s <- p* : '%color, %ready\n'
+s -> p! : '%color, %ready\n'
+
+// Game
+s <- p* : '%played, %finished\n'
+s -> p! : '%played, %finished\n'
+
+// Sync
+s <- p* : '%ready\n'
+s -> p* : '%id\n'

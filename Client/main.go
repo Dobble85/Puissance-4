@@ -42,7 +42,7 @@ func init() {
 
 // Création, paramétrage et lancement du jeu.
 func main() {
-	g := game{server: &server{}}
+	g := game{server: &server{channel: make(chan string), ready: false}} // Modification
 	ip := ""
 	// Ajout de la connexion au serveur
 	if len(os.Args) > 2 {
@@ -64,8 +64,8 @@ func main() {
 
 	log.Println("[INFO] - Je suis connecté")
 	g.server.handler = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-	g.server.ready = false
 	go g.server.waitUntilServerIsReady()
+
 	// Fin de l'ajout
 
 	ebiten.SetWindowTitle("Programmation système : projet puissance 4")

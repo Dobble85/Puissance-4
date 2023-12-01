@@ -11,112 +11,31 @@ import (
 const debug = true
 
 type player struct {
-	handler  *bufio.ReadWriter
-	response string
+	handler *bufio.ReadWriter
+	ready   bool
+	channel chan string
 }
 
 type server struct {
-	listener net.Listener
-	player1  *player
-	player2  *player
+	player1 *player
+	player2 *player
+	turn    int
 }
 
 func main() {
 	// Init
 	log.Println("[INFO] - Serveur démarré")
-	server := server{player1: &player{}, player2: &player{}}
+	server := server{
+		player1: &player{channel: make(chan string)},
+		player2: &player{channel: make(chan string)},
+	}
 
 	// Attente de connexion des joueurs
-	server.waitForPlayer()
-	defer server.listener.Close()
-
-	server.player1.send("ready\n")
-	server.player2.send("ready\n")
-
-	// Attente de la réponse du choix des couleurs
-	log.Println("[INFO] - En attente de la réponse des joueurs...")
-	go server.player1.receive()
-	go server.player2.receive()
-
-	for len(server.player1.response) == 0 || len(server.player2.response) == 0 {
-		time.Sleep(time.Millisecond * 100)
-	}
-
-	log.Println("[INFO] - Les deux joueurs ont choisi leur couleur")
-	server.player1.send("ready\n")
-	server.player2.send("ready\n")
-
-	server.player1.response = strings.TrimSuffix(server.player1.response, "\n")
-	server.player2.response = strings.TrimSuffix(server.player2.response, "\n")
-	server.player1.send(server.player2.response + ", 0\n")
-	server.player2.send(server.player1.response + ", 1\n")
-
-	// Partie
-	turn := 1
-	for {
-		println()
-		log.Println("[INFO] - Début de la partie")
-		partie_finie := false
-		for !partie_finie {
-			partie_finie = server.playRound(turn)
-			turn = 3 - turn
-		}
-		log.Println("[INFO] - Partie terminée")
-		println()
-		// Fin de la partie
-
-		log.Println("[INFO] - Synchronisation des joueurs...")
-		go server.player1.receive()
-		go server.player2.receive()
-
-		time.Sleep(time.Millisecond * 100)
-
-		for len(server.player1.response) == 0 || len(server.player2.response) == 0 {
-			time.Sleep(time.Millisecond * 100)
-		}
-
-		log.Println("[INFO] -  Synchronisation de la partie")
-		if turn == 1 {
-			server.player1.send("0\n")
-			server.player2.send("1\n")
-		} else {
-			server.player1.send("1\n")
-			server.player2.send("0\n")
-		}
-		log.Println("[INFO] - Partie synchronisée")
-		time.Sleep(time.Millisecond * 100)
-	}
-
-}
-
-func (server *server) playRound(playerId int) bool {
-	player := server.getPlayer(playerId)
-	other := server.getPlayer(3 - playerId)
-
-	log.Println("[INFO] - Début du tour du joueur ", playerId)
-
-	// Attente du choix du joueur
-	player.receive()
-
-	// Traitement du choix du joueur
-	// Case, partie_finie\n
-	temp := strings.Split(player.response, ", ")
-	case1 := temp[0]
-	partie_finie := temp[1] == "true\n"
-
-	// Envoi du choix du joueur à l'autre joueur
-	other.send(case1 + "\n")
-
-	return partie_finie
-}
-
-func (server *server) waitForPlayer() {
 	listener, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		log.Println("[ERROR] - Erreur lors de la création du listener:", err)
 		return
 	}
-	server.listener = listener
 
 	log.Println("[INFO] - En attente de connexion")
 
@@ -137,6 +56,60 @@ func (server *server) waitForPlayer() {
 	log.Println("[INFO] - Les deux joueurs sont connectés")
 	server.player1.handler = bufio.NewReadWriter(bufio.NewReader(player1), bufio.NewWriter(player1))
 	server.player2.handler = bufio.NewReadWriter(bufio.NewReader(player2), bufio.NewWriter(player2))
+	defer listener.Close()
+
+	go server.handlePlayer(1)
+	go server.handlePlayer(2)
+
+	// Choix des couleurs
+	log.Println("[INFO] - En attente de la réponse des joueurs...")
+
+	for server.player1.ready == false || server.player2.ready == false {
+		time.Sleep(time.Millisecond * 100)
+	}
+
+	log.Println("[INFO] - Les deux joueurs ont choisi leur couleur")
+
+	// Partie
+	server.turn = 1
+	for {
+		println()
+		log.Println("[INFO] - Début de la partie")
+		server.player1.ready = false
+		server.player2.ready = false
+		server.broadcast("server:ready")
+
+		for server.player1.ready == false && server.player2.ready == false {
+			time.Sleep(time.Millisecond * 100)
+		}
+
+		log.Println("[INFO] - Partie terminée")
+		println()
+		// Fin de la partie
+
+		log.Println("[INFO] - Synchronisation des joueurs...")
+
+		server.player1.ready = false
+		server.player2.ready = false
+
+		for server.player1.ready == false || server.player2.ready == false {
+			time.Sleep(time.Millisecond * 100)
+		}
+
+		log.Println("[INFO] -  Synchronisation de la partie")
+		// TODO A revoir
+		if server.turn == 1 {
+			server.player1.send("0\n")
+			server.player2.send("1\n")
+		} else {
+			server.player1.send("1\n")
+			server.player2.send("0\n")
+		}
+		// TODO ------------------------------
+		log.Println("[INFO] - Partie synchronisée")
+		time.Sleep(time.Millisecond * 100)
+	}
+
 }
 
 func (server *server) getPlayer(id int) *player {
@@ -156,14 +129,94 @@ func (player *player) send(msg string) {
 }
 
 func (player *player) receive() {
-	player.response = ""
 	msg, err := player.handler.ReadString('\n')
 	if err != nil {
 		log.Println("[ERROR] - Erreur lors de la lecture du message du serveur:", err)
 		return
 	}
-	player.response = msg
+	player.channel <- msg
 	if debug {
 		log.Print("[DEBUG] - Réception du message du joueur : ", msg)
+	}
+}
+
+func (server *server) broadcast(msg string) {
+	server.player1.channel <- msg
+	server.player2.channel <- msg
+}
+
+func (server *server) handlePlayer(id int) {
+	player := server.getPlayer(id)
+	other := server.getPlayer(3 - id)
+
+	player.send(strings.Replace("{id}\n", "{id}", string(id), -1))
+
+	// Choix des couleurs
+	go player.receive()
+	color_choice := false
+	for {
+		select {
+		case msg := <-player.channel:
+			if msg == "server:ready" {
+				color_choice = true
+			} else {
+				temp := strings.Split(msg, ", ")
+
+				ready := temp[1] == "true\n"
+				if ready {
+					if !player.ready {
+						log.Println("[INFO] - Le joueur ", id, " est prêt")
+					}
+					player.ready = true
+				}
+				other.send(msg)
+				go player.receive()
+			}
+		default:
+			// Do nothing
+		}
+		if color_choice {
+			break
+		}
+	}
+
+	go player.receive()
+	for {
+		// Partie
+		select {
+		case msg := <-player.channel:
+			if msg == "server:ready\n" {
+				break
+			}
+
+			temp := strings.Split(msg, ", ")
+			played := temp[0]
+			game_finished := temp[1] == "true\n"
+
+			server.turn = 3 - id
+			other.send(played + "\n")
+			if game_finished {
+				player.ready = true
+				other.channel <- "server:ready\n"
+				break
+			}
+			go player.receive()
+		default:
+			// Do nothing
+		}
+
+		// Synchro
+		go player.receive()
+		for {
+			select {
+			case msg := <-player.channel:
+				if msg == "server:ready\n" {
+					break
+				}
+				player.ready = true
+			default:
+				// Do nothing
+			}
+		}
 	}
 }
