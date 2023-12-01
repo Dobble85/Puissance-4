@@ -6,7 +6,7 @@ s -> p! : '%color, %ready\n'
 
 // Game
 s <- p* : '%played, %finished\n'
-s -> p! : '%played, %finished\n'
+s -> p! : '%played\n'
 
 // Sync
 s <- p* : '%ready\n'

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -79,7 +80,7 @@ func main() {
 		server.player2.ready = false
 		server.broadcast("server:ready")
 
-		for server.player1.ready == false && server.player2.ready == false {
+		for server.player1.ready == false || server.player2.ready == false {
 			time.Sleep(time.Millisecond * 100)
 		}
 
@@ -149,7 +150,7 @@ func (server *server) handlePlayer(id int) {
 	player := server.getPlayer(id)
 	other := server.getPlayer(3 - id)
 
-	player.send(strings.Replace("{id}\n", "{id}", string(id), -1))
+	player.send(strconv.Itoa(id) + "\n")
 
 	// Choix des couleurs
 	go player.receive()
@@ -169,7 +170,7 @@ func (server *server) handlePlayer(id int) {
 					}
 					player.ready = true
 				}
-				other.send(msg)
+				other.send(temp[0] + "\n")
 				go player.receive()
 			}
 		default:
@@ -179,8 +180,9 @@ func (server *server) handlePlayer(id int) {
 			break
 		}
 	}
+	player.send("server:ready\n")
 
-	go player.receive()
+	log.Println("[INFO] - Partie commencée - ", id)
 	for {
 		// Partie
 		select {
@@ -192,6 +194,7 @@ func (server *server) handlePlayer(id int) {
 			temp := strings.Split(msg, ", ")
 			played := temp[0]
 			game_finished := temp[1] == "true\n"
+			log.Println("[INFO] - Le joueur ", id, " a joué : ", played, " - Fin de partie : ", game_finished)
 
 			server.turn = 3 - id
 			other.send(played + "\n")
@@ -202,7 +205,7 @@ func (server *server) handlePlayer(id int) {
 			}
 			go player.receive()
 		default:
-			// Do nothing
+			continue // Do nothing
 		}
 
 		// Synchro
@@ -215,7 +218,7 @@ func (server *server) handlePlayer(id int) {
 				}
 				player.ready = true
 			default:
-				// Do nothing
+				continue // Do nothing
 			}
 		}
 	}
