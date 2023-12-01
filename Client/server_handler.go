@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"log"
+	"strconv"
 	"strings"
 )
 
@@ -48,11 +49,20 @@ func (s *server) waitUntilServerIsReady() {
 
 func (g *game) getColor() {
 	go g.server.receive()
+	log.Println("[DEBUG] - getColor()")
 	for {
 		select {
 		case message := <-g.server.channel:
-				g.
-			return
+			log.Println("[DEBUG] - getColor() : ", message)
+			if message == "server:ready" {
+				g.server.ready = true
+				log.Println("[DEBUG] - Le serveur est prêt : getColor()")
+				return
+			} else {
+				g.p2Color, _ = strconv.Atoi(message)
+				go g.server.receive()
+			}
+
 		default:
 			// Do nothing
 		}

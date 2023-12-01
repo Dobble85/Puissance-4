@@ -33,7 +33,11 @@ func (g game) titleDraw(screen *ebiten.Image) {
 	text.Draw(screen, "Année 2023-2024", smallFont, 210, 230, globalTextColor)
 
 	if g.stateFrame >= globalBlinkDuration/3 {
-		text.Draw(screen, "Appuyez sur entrée", smallFont, 210, 500, globalTextColor)
+		if g.server.ready {
+			text.Draw(screen, "Appuyez sur entrée", smallFont, 210, 500, globalTextColor)
+		} else {
+			text.Draw(screen, "En attente de l'autre joueur", smallFont, 150, 500, globalTextColor)
+		}
 	}
 }
 

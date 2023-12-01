@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"strconv"
-	"strings"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"log"
+	"strconv"
 )
 
 // Mise à jour de l'état du jeu en fonction des entrées au clavier.
@@ -20,12 +18,19 @@ func (g *game) Update() error {
 		if g.titleUpdate() && g.server.ready { // Modification
 			g.server.ready = false //Ajout
 			g.server.wait = false  // Ajout
-			go g.getColor()        // Ajout -- A modifier pour les couleurs
+			go g.getColor()        // Ajout
+			ebiten.SetWindowTitle("Puissance 4 - Choisis ta couleur")
 			g.gameState++
 		}
 	case colorSelectState:
 		if g.colorSelectUpdate() && g.server.ready { // Modification
 			g.server.ready = false //Ajout
+			if g.turn == p1Turn {
+				ebiten.SetWindowTitle("Puissance 4 - A toi de jouer !")
+			} else {
+				ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
+				go g.server.receive()
+			}
 			g.gameState++
 		}
 	case playState:
@@ -60,12 +65,8 @@ func (g *game) Update() error {
 			}
 		}
 	case resultState:
-		if g.resultUpdate() && len(g.server.response) > 0 { // Modification
+		if g.resultUpdate() && g.server.ready { // Modification
 			g.reset()
-
-			// Mise à jour de l'ordre de tour
-			g.server.response = strings.TrimSuffix(g.server.response, "\n")
-			g.turn, _ = strconv.Atoi(g.server.response)
 
 			if g.turn != p1Turn {
 				log.Println("Je suis le joueur 2")
@@ -85,46 +86,64 @@ func (g *game) Update() error {
 // Mise à jour de l'état du jeu à l'écran titre.
 func (g *game) titleUpdate() bool {
 	g.stateFrame = g.stateFrame % globalBlinkDuration
+
+	if !g.server.ready {
+		select {
+		case message := <-g.server.channel:
+			if message == "1" {
+				log.Println("Je suis le joueur 1")
+				g.turn = p1Turn
+			} else {
+				log.Println("Je suis le joueur 2")
+				g.turn = p2Turn
+			}
+			g.server.ready = true
+			ebiten.SetWindowTitle("Puissance 4 - Appuyez sur entrée")
+		default:
+			// Do nothing
+		}
+	}
 	return inpututil.IsKeyJustPressed(ebiten.KeyEnter)
 }
 
 // Mise à jour de l'état du jeu lors de la sélection des couleurs.
 func (g *game) colorSelectUpdate() bool {
 
-	if g.server.wait {
-		return true
-	}
-
+	changed := false
 	col := g.p1Color % globalNumColorCol
 	line := g.p1Color / globalNumColorLine
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyRight) {
 		col = (col + 1) % globalNumColorCol
+		changed = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyLeft) {
 		col = (col - 1 + globalNumColorCol) % globalNumColorCol
+		changed = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyDown) {
 		line = (line + 1) % globalNumColorLine
+		changed = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyUp) {
 		line = (line - 1 + globalNumColorLine) % globalNumColorLine
+		changed = true
 	}
 
 	g.p1Color = line*globalNumColorLine + col
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		// Ajout de l'envoi de la couleur au serveur
-		g.server.send(fmt.Sprint(g.p1Color) + ", true\n")
 		g.server.wait = true
-		// Fin de l'ajout
-		return true
+		changed = true
 	}
-	g.server.send(fmt.Sprint(g.p1Color) + ", false\n")
-	return false
+
+	if changed {
+		g.server.send(fmt.Sprint(g.p1Color) + ", " + strconv.FormatBool(g.server.wait) + "\n")
+	}
+	return g.server.wait
 }
 
 // Gestion de la position du prochain pion à jouer par le joueur 1.
@@ -156,31 +175,39 @@ func (g *game) p1Update() (int, int) {
 // Gestion de la position du prochain pion joué par le joueur 2 et
 // du moment où ce pion est joué.
 func (g *game) p2Update() (int, int) {
-	if len(g.server.response) == 0 {
+	select {
+	case message := <-g.server.channel:
+		position, _ := strconv.Atoi(message)
+		updated, yPos := g.updateGrid(p2Token, position)
+		for ; !updated; updated, yPos = g.updateGrid(p2Token, position) {
+			position = (position + 1) % globalNumTilesX
+		}
+		g.turn = p1Turn
+		return position, yPos
+	default:
 		return -1, -1
 	}
-	g.server.response = strings.TrimSuffix(g.server.response, "\n")
-	position, _ := strconv.Atoi(g.server.response)
-	updated, yPos := g.updateGrid(p2Token, position)
-	for ; !updated; updated, yPos = g.updateGrid(p2Token, position) {
-		position = (position + 1) % globalNumTilesX
-	}
-	g.turn = p1Turn
-	return position, yPos
 }
 
 // Mise à jour de l'état du jeu à l'écran des résultats.
 func (g game) resultUpdate() bool {
-	if g.server.wait {
-		return true
-	}
+	select {
+	case message := <-g.server.channel:
+		g.turn, _ = strconv.Atoi(message)
+		g.server.ready = true
+		return g.server.wait
+	default:
+		if g.server.wait {
+			return true
+		}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		g.server.wait = true
-		g.server.send("ready\n")
-		return true
+		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			g.server.wait = true
+			g.server.send("ready\n")
+			return true
+		}
+		return false
 	}
-	return false
 }
 
 // Mise à jour de la grille de jeu lorsqu'un pion est inséré dans la

@@ -64,11 +64,12 @@ func main() {
 
 	log.Println("[INFO] - Je suis connecté")
 	g.server.handler = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-	go g.server.waitUntilServerIsReady()
+
+	go g.server.receive()
 
 	// Fin de l'ajout
 
-	ebiten.SetWindowTitle("Programmation système : projet puissance 4")
+	ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	if err := ebiten.RunGame(&g); err != nil { // Modifié
