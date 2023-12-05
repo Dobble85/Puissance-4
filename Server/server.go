@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -15,6 +16,7 @@ type player struct {
 	handler *bufio.ReadWriter
 	ready   bool
 	channel chan string
+	id      int
 }
 
 type server struct {
@@ -27,8 +29,8 @@ func main() {
 	// Init
 	log.Println("[INFO] - Serveur démarré")
 	server := server{
-		player1: &player{channel: make(chan string)},
-		player2: &player{channel: make(chan string)},
+		player1: &player{channel: make(chan string), id: 1},
+		player2: &player{channel: make(chan string), id: 2},
 	}
 
 	// Attente de connexion des joueurs
@@ -76,9 +78,9 @@ func main() {
 	for {
 		println()
 		log.Println("[INFO] - Début de la partie")
+		server.broadcast("server:ready")
 		server.player1.ready = false
 		server.player2.ready = false
-		server.broadcast("server:ready")
 
 		for server.player1.ready == false || server.player2.ready == false {
 			time.Sleep(time.Millisecond * 100)
@@ -124,42 +126,51 @@ func (player *player) send(msg string) {
 	player.handler.WriteString(msg)
 	player.handler.Flush()
 	if debug {
-		msg = strings.Replace(msg, "\n", "", -1)
-		log.Println("[DEBUG] - Envoi du message au joueur : ", msg)
+		msg = strings.Replace(msg, "\n", "|", -1)
+		log.Println("[SENT] - player "+fmt.Sprint(player.id)+" -> ", msg)
 	}
 }
 
 func (player *player) receive() {
-	msg, err := player.handler.ReadString('\n')
-	if err != nil {
-		log.Println("[ERROR] - Erreur lors de la lecture du message du serveur:", err)
-		return
+	for {
+		msg, err := player.handler.ReadString('\n')
+		if err != nil {
+			log.Println("[ERROR] - Erreur lors de la lecture du message du serveur:", err)
+			return
+		}
+		player.channel <- msg
+		if debug {
+			msg := strings.Replace(msg, "\n", "|", -1)
+			log.Println("[RECEIVED] - player "+fmt.Sprint(player.id)+" -> ", msg)
+		}
 	}
-	player.channel <- msg
-	if debug {
-		log.Print("[DEBUG] - Réception du message du joueur : ", msg)
-	}
+
 }
 
 func (server *server) broadcast(msg string) {
 	server.player1.channel <- msg
 	server.player2.channel <- msg
+	if debug {
+		msg = strings.Replace(msg, "\n", "|", -1)
+		log.Println("[BROADCAST] - server -> ", msg)
+	}
 }
 
 func (server *server) handlePlayer(id int) {
 	player := server.getPlayer(id)
 	other := server.getPlayer(3 - id)
 
+	go player.receive()
+
 	player.send(strconv.Itoa(id) + "\n")
 
 	// Choix des couleurs
-	go player.receive()
-	color_choice := false
+	colorChoice := false
 	for {
 		select {
 		case msg := <-player.channel:
 			if msg == "server:ready" {
-				color_choice = true
+				colorChoice = true
 			} else {
 				temp := strings.Split(msg, ", ")
 
@@ -171,55 +182,69 @@ func (server *server) handlePlayer(id int) {
 					player.ready = true
 				}
 				other.send(temp[0] + "\n")
-				go player.receive()
 			}
 		default:
 			// Do nothing
 		}
-		if color_choice {
+		if colorChoice {
 			break
 		}
 	}
 	player.send("server:ready\n")
 
+	// Partie + Synchro
 	log.Println("[INFO] - Partie commencée - ", id)
 	for {
-		// Partie
-		select {
-		case msg := <-player.channel:
-			if msg == "server:ready\n" {
+		gameFinished := false
+		for {
+			// Partie
+			select {
+			case msg := <-player.channel:
+				fmt.Println("")
+
+				if msg == "server:game_finished" {
+					player.ready = true
+					gameFinished = true
+					continue
+				}
+				if debug {
+					log.Println("[DEBUG] - Partie -- ", id)
+				}
+
+				temp := strings.Split(msg, ", ")
+				played := temp[0]
+				gameFinished = temp[1] == "true\n"
+				log.Println("[INFO] - Le joueur ", id, " a joué : ", played, " - Fin de partie : ", gameFinished)
+
+				if gameFinished {
+					player.ready = true
+					other.channel <- "server:game_finished"
+				}
+
+				server.turn = 3 - id
+				other.send(played + "\n")
+			default:
+				// Do nothing
+			}
+			if gameFinished {
 				break
 			}
-
-			temp := strings.Split(msg, ", ")
-			played := temp[0]
-			game_finished := temp[1] == "true\n"
-			log.Println("[INFO] - Le joueur ", id, " a joué : ", played, " - Fin de partie : ", game_finished)
-
-			server.turn = 3 - id
-			other.send(played + "\n")
-			if game_finished {
-				player.ready = true
-				other.channel <- "server:ready\n"
-				break
-			}
-			go player.receive()
-		default:
-			continue // Do nothing
 		}
 
 		// Synchro
-		go player.receive()
+		synchroFinished := false
 		for {
 			select {
 			case msg := <-player.channel:
-				if msg == "server:ready\n" {
-					break
-				}
+				synchroFinished = msg == "server:ready"
 				player.ready = true
 			default:
-				continue // Do nothing
+				// Do nothing
+			}
+			if synchroFinished {
+				break
 			}
 		}
+		log.Println("[INFO] - Synchronisation de la partie - ", id)
 	}
 }

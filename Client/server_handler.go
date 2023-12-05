@@ -20,7 +20,7 @@ func (s *server) send(message string) {
 	s.handler.WriteString(message)
 	s.handler.Flush()
 	if debug {
-		log.Print("[DEBUG] - Message envoyé au serveur : ", message)
+		log.Print("[SENT] - server -> ", message)
 	}
 }
 
@@ -29,7 +29,7 @@ func (s *server) receive() {
 	s.channel <- strings.TrimSuffix(response, "\n")
 
 	if debug {
-		log.Print("[DEBUG] - Message reçu du serveur : ", response)
+		log.Print("[RECEIVED] - server -> ", response)
 	}
 }
 

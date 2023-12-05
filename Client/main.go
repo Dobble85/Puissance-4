@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/examples/resources/fonts"
@@ -54,12 +56,18 @@ func main() {
 		ip = os.Args[1]
 	}
 
-	log.Println("[INFO] - Je me connecte au serveur")
-	conn, err := net.Dial("tcp", ip)
-	if err != nil {
-		log.Println("[ERROR] - Erreur lors de la connexion au serveur:", err)
-		return
+	var conn net.Conn
+	var err error
+	for conn == nil {
+		log.Println("[INFO] - Tentative de connexion au serveur")
+		conn, err = net.Dial("tcp", ip)
+		if err != nil {
+			log.Println("[ERROR] - Echec de la connexion au serveur")
+			time.Sleep(time.Second * 2)
+		}
 	}
+	fmt.Println("")
+	log.Println("[INFO] - Connexion au serveur réussie")
 	defer conn.Close()
 
 	log.Println("[INFO] - Je suis connecté")
