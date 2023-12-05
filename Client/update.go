@@ -52,7 +52,9 @@ func (g *game) Update() error {
 					g.server.send(fmt.Sprint(lastXPositionPlayed) + ", true" + "\n")
 				}
 				g.server.wait = false
+				g.server.ready = false
 				go g.server.receive()
+				ebiten.SetWindowTitle("Puissance 4 - Fin de partie")
 				g.gameState++
 			} else if g.turn == p2Turn {
 				log.Println("J'envoie la position du pion au serveur")
