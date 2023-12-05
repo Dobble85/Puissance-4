@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -66,13 +67,117 @@ func main() {
 			time.Sleep(time.Second * 2)
 		}
 	}
-	fmt.Println("")
 	log.Println("[INFO] - Connexion au serveur réussie")
+	fmt.Println("")
 	defer conn.Close()
 
 	log.Println("[INFO] - Je suis connecté")
 	g.server.handler = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
+	go g.server.receive()
+
+	// Choix pour la création d'une partie ou la connexion à une partie existante
+	msg := <-g.server.channel
+	msg = strings.TrimSuffix(msg, "\n")
+	games := strings.Split(msg, ", ")
+	if games[0] == "" && len(games) == 1 {
+		games = []string{}
+	}
+	for {
+		go g.server.receive()
+		println("Voulez-vous créer une partie ou en rejoindre une ?")
+		println("1 - Créer une partie")
+		println("2 - Rejoindre une partie")
+		var choice int
+		_, err := fmt.Scanln(&choice)
+		if err != nil {
+			println("Veuillez entrer un choix valide\n\n\n\n\n")
+			continue
+		}
+		if choice == 1 {
+			// Création d'une partie
+			var name string
+			var password string
+			for {
+				print("Veuillez entrer le nom de la partie : ")
+				_, err := fmt.Scanln(&name)
+				if err != nil {
+					println("Veuillez entrer un nom valide")
+					continue
+				}
+				break
+			} // Nom
+			for {
+				print("Veuillez entrer le mot de passe de la partie : ")
+				_, err := fmt.Scanln(&password)
+				if err != nil {
+					println("Veuillez entrer un mot de passe valide")
+					continue
+				}
+				break
+			} // Mot de passe
+			g.server.send("game:create, " + name + ", " + password + "\n")
+
+			// On vérifie que la création est acceptée par le serveur
+			msg := <-g.server.channel
+			if msg == "server:game_accepted" {
+				println("Partie créée avec succès")
+				break
+			} else {
+				println("La création de la partie a échoué\n\n\n\n\n")
+				continue
+			}
+		} else if choice == 2 {
+			// Rejoindre une partie
+			println("Liste des parties disponibles :")
+			if len(games) == 0 {
+				println("Aucune partie disponible, veuillez en créer une !\n\n\n\n\n")
+				continue
+			}
+			println("0 - Retour")
+			for _, game := range games {
+				println(game)
+			}
+			println()
+			var gameId int
+			var password string
+			for {
+				print("Veuillez entrer l'id de la partie à rejoindre : ")
+				_, err := fmt.Scanln(&gameId)
+				if err != nil {
+					println("Veuillez entrer un id valide")
+					continue
+				}
+				break
+			} // Id
+			if gameId == 0 {
+				println("\n\n\n\n\n")
+				continue
+			}
+			for {
+				print("Veuillez entrer le mot de passe de la partie : ")
+				_, err := fmt.Scanln(&password)
+				if err != nil {
+					println("Veuillez entrer un mot de passe valide")
+					continue
+				}
+				break
+			} // Mot de passe
+			g.server.send("game:join, " + fmt.Sprint(gameId) + ", " + password + "\n")
+
+			// On vérifie que le serveur accepte la connexion
+			if <-g.server.channel == "server:game_accepted" {
+				println("Connexion à la partie réussie")
+				break
+			} else {
+				println("La connexion à la partie a échoué\n\n\n\n\n")
+				continue
+			}
+		} else {
+			println("Veuillez entrer un choix valide\n\n\n\n\n")
+			continue
+		}
+	}
 	go g.server.receive()
 
 	// Fin de l'ajout
