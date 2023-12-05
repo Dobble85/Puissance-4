@@ -54,7 +54,7 @@ func (g *game) getColor() {
 		select {
 		case message := <-g.server.channel:
 			log.Println("[DEBUG] - getColor() : ", message)
-			if message == "server:ready" {
+			if message == "game:ready" {
 				g.server.ready = true
 				log.Println("[DEBUG] - Le serveur est prêt : getColor()")
 				return
