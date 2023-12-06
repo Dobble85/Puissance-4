@@ -26,3 +26,12 @@ func (s server) handlePlayerConnection() {
 		log.Println("[INFO] - Nouveau joueur connecté")
 	}
 }
+
+func (server *server) findGame(id int) int {
+	for p, v := range server.games {
+		if v.id == id {
+			return p
+		}
+	}
+	return -1
+}

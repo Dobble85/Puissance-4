@@ -74,15 +74,8 @@ func main() {
 	log.Println("[INFO] - Je suis connecté")
 	g.server.handler = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
-	go g.server.receive()
-
 	// Choix pour la création d'une partie ou la connexion à une partie existante
-	msg := <-g.server.channel
-	msg = strings.TrimSuffix(msg, "\n")
-	games := strings.Split(msg, ", ")
-	if games[0] == "" && len(games) == 1 {
-		games = []string{}
-	}
+
 	for {
 		go g.server.receive()
 		println("Voulez-vous créer une partie ou en rejoindre une ?")
@@ -118,16 +111,19 @@ func main() {
 			} // Mot de passe
 			g.server.send("game:create, " + name + ", " + password + "\n")
 
-			// On vérifie que la création est acceptée par le serveur
-			msg := <-g.server.channel
-			if msg == "server:game_accepted" {
-				println("Partie créée avec succès")
-				break
-			} else {
-				println("La création de la partie a échoué\n\n\n\n\n")
-				continue
-			}
+			println("Partie créée avec succès")
+			break
+
 		} else if choice == 2 {
+			// Récupération des parties disponibles
+			go g.server.receive()
+			g.server.send("game:refresh\n")
+			msg := <-g.server.channel
+			msg = strings.TrimSuffix(msg, "\n")
+			games := strings.Split(msg, ", ")
+			if games[0] == "" && len(games) == 1 {
+				games = []string{}
+			}
 			// Rejoindre une partie
 			println("Liste des parties disponibles :")
 			if len(games) == 0 {
@@ -166,12 +162,18 @@ func main() {
 			g.server.send("game:join, " + fmt.Sprint(gameId) + ", " + password + "\n")
 
 			// On vérifie que le serveur accepte la connexion
-			if <-g.server.channel == "server:game_accepted" {
+			msg = <-g.server.channel
+			if msg == "game:accepted" { // ?? "game:accepted"
 				println("Connexion à la partie réussie")
 				break
+			} else if msg == "game:full" { // ?? "game:full"
+				println("La partie est pleine\n\n\n\n\n")
+			} else if msg == "_password" { // ?? "game:wrong_password"
+				println("Le mot de passe est incorrect\n\n\n\n\n")
+			} else if msg == "ound" { // ?? "game:not_found"
+				println("La partie n'existe pas\n\n\n\n\n")
 			} else {
-				println("La connexion à la partie a échoué\n\n\n\n\n")
-				continue
+				println("Une erreur est survenue\n\n\n\n\n")
 			}
 		} else {
 			println("Veuillez entrer un choix valide\n\n\n\n\n")

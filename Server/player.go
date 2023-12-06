@@ -20,8 +20,7 @@ func (player *player) send(msg string) {
 	player.handler.WriteString(msg)
 	player.handler.Flush()
 	if debug {
-		msg = strings.Replace(msg, "\n", "|", -1)
-		log.Println("[SENT] - player "+fmt.Sprint(player.gameTurn)+" -> ", msg)
+		log.Println("[SENT] - player -> ", strings.Replace(msg, "\n", "|", -1))
 	}
 }
 
@@ -42,37 +41,38 @@ func (player *player) receive() {
 }
 
 func (player *player) handle(server *server) {
-	availableGames := make([]string, len(server.games))
-	for i, game := range server.games {
-		if game.client == nil {
-			availableGames[i] = fmt.Sprint(game.id) + " - " + game.name
-		}
-	}
-	player.send(strings.Join(availableGames, ", ") + "\n")
-
 	for {
 		select {
 		case msg := <-player.channel:
+			msg = strings.Replace(msg, "\n", "", -1)
 			temp := strings.Split(msg, ", ")
 			if temp[0] == "game:join" {
 				gameId, _ := strconv.Atoi(temp[1])
 				password := temp[2]
-				password = strings.TrimSuffix(password, "\n")
-				game := server.games[gameId-1]
-				if game.client == nil && game.password == password {
-					game.client = player
-					player.gameTurn = 2
-					player.send("server:game_accepted\n")
-					log.Println("[INFO] - Le joueur 2 a rejoint la partie", game.id)
-					game.start()
-					return
+				gameIndex := server.findGame(gameId) // Récupération de la partie
+				if gameIndex == -1 {
+					player.send("game:not_found\n")
+					continue
+				}
+				game := server.games[gameIndex]
+
+				if game.client == nil {
+					if game.password == password {
+						game.client = player
+						player.gameTurn = 2
+						player.send("game:accepted\n")
+						log.Println("[INFO] - Le joueur 2 a rejoint la partie", game.id)
+						game.start()
+						return
+					} else {
+						player.send("game:wrong_password\n")
+					}
 				} else {
-					player.send("server:game_refused\n")
+					player.send("game:full\n")
 				}
 			} else if temp[0] == "game:create" {
 				gameName := temp[1]
 				password := temp[2]
-				password = strings.TrimSuffix(password, "\n")
 				game := &game{
 					id:       len(server.games) + 1,
 					name:     gameName,
@@ -81,8 +81,15 @@ func (player *player) handle(server *server) {
 				}
 				server.games = append(server.games, game)
 				player.gameTurn = 1
-				player.send("server:game_accepted\n")
 				log.Println("[INFO] - Partie créée - " + gameName + " (" + fmt.Sprint(game.id) + ")")
+			} else if temp[0] == "game:refresh" {
+				availableGames := make([]string, len(server.games))
+				for i, game := range server.games {
+					if game.client == nil {
+						availableGames[i] = fmt.Sprint(game.id) + " - " + game.name
+					}
+				}
+				player.send(strings.Join(availableGames, ", ") + "\n")
 			} else {
 				log.Println("[ERROR] - Message inconnu:", msg)
 			}
