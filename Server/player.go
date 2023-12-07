@@ -17,27 +17,54 @@ type player struct {
 }
 
 func (player *player) send(msg string) {
-	player.handler.WriteString(msg)
-	player.handler.Flush()
+	_, err := player.handler.WriteString(msg)
+	if err != nil {
+		log.Println(Grey+"["+Red+"ERROR"+Grey+"]"+Reset+"- Erreur lors de l'envoi d'un message au joueur :", err)
+		return
+	}
+	err = player.handler.Flush()
+	if err != nil {
+		log.Println(Grey+"["+Red+"ERROR"+Grey+"]"+Reset+"- Erreur lors de l'envoi d'un message au joueur :", err)
+		return
+	}
 	if debug {
-		log.Println("[SENT] - player -> ", strings.Replace(msg, "\n", "|", -1))
+		log.Println(Grey+"["+Green+"SENT"+Grey+"]"+Reset+"- player <- ", strings.Replace(msg, "\n", "|", -1))
 	}
 }
 
-func (player *player) receive() {
+func (player *player) receive(server *server) {
 	for {
 		msg, err := player.handler.ReadString('\n')
 		if err != nil {
-			log.Println("[INFO] - Un joueur s'est déconnecté")
+			log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Un joueur s'est déconnecté")
+			for i, v := range server.players {
+				if v == player {
+					// Delete the player
+					server.players = append(server.players[:i], server.players[i+1:]...)
+					break
+				}
+			}
+			for i, v := range server.games {
+				if v.host == player || v.client == player {
+					// Send a message to the other player
+					if v.host == player {
+						v.client.send("game:other_player_left\n")
+					} else {
+						v.host.send("game:other_player_left\n")
+					}
+					// Delete the game
+					server.games = append(server.games[:i], server.games[i+1:]...)
+					break
+				}
+			}
 			return
 		}
 		player.channel <- msg
 		if debug {
 			msg := strings.Replace(msg, "\n", "|", -1)
-			log.Println("[RECEIVED] - player "+fmt.Sprint(player.gameTurn)+" -> ", msg)
+			log.Println(Grey+"["+Green+"RECEIVED"+Grey+"]"+Reset+"- player  -> ", msg)
 		}
 	}
-
 }
 
 func (player *player) handle(server *server) {
@@ -61,7 +88,7 @@ func (player *player) handle(server *server) {
 						game.client = player
 						player.gameTurn = 2
 						player.send("game:accepted\n")
-						log.Println("[INFO] - Le joueur 2 a rejoint la partie", game.id)
+						log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Le joueur 2 a rejoint la partie", game.id)
 						game.start()
 						return
 					} else {
@@ -81,17 +108,23 @@ func (player *player) handle(server *server) {
 				}
 				server.games = append(server.games, game)
 				player.gameTurn = 1
-				log.Println("[INFO] - Partie créée - " + gameName + " (" + fmt.Sprint(game.id) + ")")
+				log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Partie créée - " + gameName + " (" + fmt.Sprint(game.id) + ")")
+				return
 			} else if temp[0] == "game:refresh" {
 				availableGames := make([]string, len(server.games))
-				for i, game := range server.games {
+				for _, game := range server.games {
 					if game.client == nil {
-						availableGames[i] = fmt.Sprint(game.id) + " - " + game.name
+						for i := 0; i < len(availableGames); i++ {
+							if availableGames[i] == "" {
+								availableGames[i] = fmt.Sprint(game.id) + " - " + game.name
+								break
+							}
+						}
 					}
 				}
 				player.send(strings.Join(availableGames, ", ") + "\n")
 			} else {
-				log.Println("[ERROR] - Message inconnu:", msg)
+				log.Println(Grey+"["+Red+"ERROR"+Grey+"]"+Red+" player_handle "+Reset+"- Message inconnu:", msg)
 			}
 		default:
 			// Do nothing

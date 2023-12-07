@@ -3,11 +3,19 @@ package main
 import (
 	"bufio"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 )
 
-const debug = true
+const debug = false
+
+const (
+	Reset = "\033[0m"
+	Red   = "\033[31m"
+	Green = "\033[32m"
+	Grey  = "\033[90m"
+)
 
 type server struct {
 	handler *bufio.ReadWriter
@@ -17,52 +25,57 @@ type server struct {
 }
 
 func (s *server) send(message string) {
-	s.handler.WriteString(message)
-	s.handler.Flush()
+	_, err := s.handler.WriteString(message)
+	if err != nil {
+		log.Println(Grey+"["+Red+"ERROR"+Grey+"]"+Reset+"- Erreur lors de l'envoi d'un message au serveur :", err)
+		return
+	}
+	err = s.handler.Flush()
+	if err != nil {
+		log.Println(Grey+"["+Red+"ERROR"+Grey+"]"+Reset+"- Erreur lors de l'envoi d'un message au serveur :", err)
+		return
+	}
 	if debug {
-		log.Print("[SENT] - server -> ", message)
+		log.Print(Grey+"["+Green+"SENT"+Grey+"]"+Reset+" - server <- ", message)
 	}
 }
 
 func (s *server) receive() {
-	response, _ := s.handler.ReadString('\n')
-	s.channel <- strings.TrimSuffix(response, "\n")
-
-	if debug {
-		log.Print("[RECEIVED] - server -> ", response)
-	}
-}
-
-func (s *server) waitUntilServerIsReady() {
-	go s.receive()
 	for {
-		select {
-		case <-s.channel:
-			s.ready = true
-			log.Println("Le serveur est prêt")
+		response, err := s.handler.ReadString('\n')
+		if err != nil {
+			println("Connexion avec le serveur interrompue")
+			// Close the game
+			os.Exit(0)
 			return
-		default:
-			// Do nothing
+		}
+		if response == "game:other_player_left\n" {
+			println("Votre adversaire a quitté la partie")
+			// Close the game
+			os.Exit(0)
+			return
+		}
+		s.channel <- strings.TrimSuffix(response, "\n")
+
+		if debug {
+			log.Print(Grey+"["+Green+"RECEIVED"+Grey+"]"+Reset+"- server -> ", response)
 		}
 	}
 }
 
 func (g *game) getColor() {
-	go g.server.receive()
-	log.Println("[DEBUG] - getColor()")
+	log.Println(Grey + "[" + Green + "DEBUG" + Grey + "]" + Reset + "- getColor()")
 	for {
 		select {
 		case message := <-g.server.channel:
-			log.Println("[DEBUG] - getColor() : ", message)
+			log.Println(Grey+"["+Green+"DEBUG"+Grey+"]"+Reset+"- getColor() : ", message)
 			if message == "game:ready" {
 				g.server.ready = true
-				log.Println("[DEBUG] - Le serveur est prêt : getColor()")
+				log.Println(Grey + "[" + Green + "DEBUG" + Grey + "]" + Reset + "- Le serveur est prêt : getColor()")
 				return
 			} else {
 				g.p2Color, _ = strconv.Atoi(message)
-				go g.server.receive()
 			}
-
 		default:
 			// Do nothing
 		}

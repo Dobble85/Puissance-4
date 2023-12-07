@@ -5,8 +5,6 @@ import (
 	"net"
 )
 
-const debug = true
-
 type server struct {
 	players  []*player
 	games    []*game
@@ -21,9 +19,9 @@ func (s server) handlePlayerConnection() {
 		}
 		player := newPlayer(conn)
 		s.players = append(s.players, player)
-		go player.receive()
+		go player.receive(&s)
 		go player.handle(&s)
-		log.Println("[INFO] - Nouveau joueur connecté")
+		log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Nouveau joueur connecté")
 	}
 }
 
