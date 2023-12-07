@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"log"
 	"strconv"
 )
 
@@ -29,7 +28,6 @@ func (g *game) Update() error {
 				ebiten.SetWindowTitle("Puissance 4 - A toi de jouer !")
 			} else {
 				ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
-				go g.server.receive()
 			}
 			g.gameState++
 		}
@@ -48,19 +46,15 @@ func (g *game) Update() error {
 				g.result = result
 				if g.turn == p2Turn {
 					// Ajout de l'envoi de la position du pion au serveur
-					log.Println("J'envoie la position du pion au serveur (fin de partie)")
 					g.server.send(fmt.Sprint(lastXPositionPlayed) + ", true" + "\n")
 				}
 				g.server.wait = false
 				g.server.ready = false
-				go g.server.receive()
 				ebiten.SetWindowTitle("Puissance 4 - Fin de partie")
 				g.gameState++
 			} else if g.turn == p2Turn {
-				log.Println("J'envoie la position du pion au serveur")
 				// Ajout de l'envoi de la position du pion au serveur
 				g.server.send(fmt.Sprint(lastXPositionPlayed) + ", false" + "\n")
-				go g.server.receive()
 				ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
 			} else {
 				ebiten.SetWindowTitle("Puissance 4 - A toi de jouer !")
@@ -71,11 +65,8 @@ func (g *game) Update() error {
 			g.reset()
 
 			if g.turn != p1Turn {
-				log.Println("Je suis le joueur 2")
 				ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
-				go g.server.receive()
 			} else {
-				log.Println("Je suis le joueur 1")
 				ebiten.SetWindowTitle("Puissance 4 - A toi de jouer !")
 			}
 			g.gameState = playState
@@ -92,15 +83,10 @@ func (g *game) titleUpdate() bool {
 	if !g.server.ready {
 		select {
 		case message := <-g.server.channel:
-			if message == "1" {
-				log.Println("Je suis le joueur 1")
-				g.turn = p1Turn
-			} else {
-				log.Println("Je suis le joueur 2")
-				g.turn = p2Turn
+			if message == "game:ready" {
+				g.server.ready = true
+				ebiten.SetWindowTitle("Puissance 4 - Appuyez sur entrée")
 			}
-			g.server.ready = true
-			ebiten.SetWindowTitle("Puissance 4 - Appuyez sur entrée")
 		default:
 			// Do nothing
 		}
@@ -168,7 +154,6 @@ func (g *game) p1Update() (int, int) {
 			g.turn = p2Turn
 			lastXPositionPlayed = g.tokenPosition
 			lastYPositionPlayed = yPos
-			log.Println("J'ai joué en", lastXPositionPlayed)
 		}
 	}
 	return lastXPositionPlayed, lastYPositionPlayed
@@ -206,6 +191,7 @@ func (g game) resultUpdate() bool {
 		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 			g.server.wait = true
 			g.server.send("ready\n")
+			ebiten.SetWindowTitle("Puissance 4 - Fin de partie - En attente de l'autre joueur")
 			return true
 		}
 		return false

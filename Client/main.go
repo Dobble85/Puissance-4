@@ -60,24 +60,21 @@ func main() {
 	var conn net.Conn
 	var err error
 	for conn == nil {
-		log.Println("[INFO] - Tentative de connexion au serveur")
+		println("Tentative de connexion au serveur...")
 		conn, err = net.Dial("tcp", ip)
 		if err != nil {
-			log.Println("[ERROR] - Echec de la connexion au serveur")
+			println("Echec de la connexion au serveur")
 			time.Sleep(time.Second * 2)
 		}
 	}
-	log.Println("[INFO] - Connexion au serveur réussie")
-	fmt.Println("")
+	println("Connexion au serveur réussie!\n")
 	defer conn.Close()
 
-	log.Println("[INFO] - Je suis connecté")
 	g.server.handler = bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+	go g.server.receive()
 
 	// Choix pour la création d'une partie ou la connexion à une partie existante
-
 	for {
-		go g.server.receive()
 		println("Voulez-vous créer une partie ou en rejoindre une ?")
 		println("1 - Créer une partie")
 		println("2 - Rejoindre une partie")
@@ -112,11 +109,11 @@ func main() {
 			g.server.send("game:create, " + name + ", " + password + "\n")
 
 			println("Partie créée avec succès")
+			g.turn = p1Turn
 			break
 
 		} else if choice == 2 {
 			// Récupération des parties disponibles
-			go g.server.receive()
 			g.server.send("game:refresh\n")
 			msg := <-g.server.channel
 			msg = strings.TrimSuffix(msg, "\n")
@@ -165,12 +162,14 @@ func main() {
 			msg = <-g.server.channel
 			if msg == "game:accepted" { // ?? "game:accepted"
 				println("Connexion à la partie réussie")
+				g.turn = p2Turn
+				g.server.ready = true
 				break
 			} else if msg == "game:full" { // ?? "game:full"
 				println("La partie est pleine\n\n\n\n\n")
-			} else if msg == "_password" { // ?? "game:wrong_password"
+			} else if msg == "game:wrong_password" { // ?? "game:wrong_password"
 				println("Le mot de passe est incorrect\n\n\n\n\n")
-			} else if msg == "ound" { // ?? "game:not_found"
+			} else if msg == "game:not_found" { // ?? "game:not_found"
 				println("La partie n'existe pas\n\n\n\n\n")
 			} else {
 				println("Une erreur est survenue\n\n\n\n\n")
@@ -180,11 +179,14 @@ func main() {
 			continue
 		}
 	}
-	go g.server.receive()
 
+	if g.turn == p1Turn {
+		ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
+	} else {
+		ebiten.SetWindowTitle("Puissance 4 - Appuyez sur entrée")
+	}
 	// Fin de l'ajout
 
-	ebiten.SetWindowTitle("Puissance 4 - En attente de l'autre joueur")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	if err := ebiten.RunGame(&g); err != nil { // Modifié

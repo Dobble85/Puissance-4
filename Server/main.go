@@ -6,9 +6,11 @@ import (
 	"time"
 )
 
+const debug = false
+
 func main() {
 	// Init
-	log.Println("[INFO] - Serveur démarré")
+	log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Serveur démarré")
 	server := &server{}
 
 	// Attente de connexion des joueurs

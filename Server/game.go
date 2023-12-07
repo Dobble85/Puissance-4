@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -21,6 +20,8 @@ func (g *game) start() {
 	go g.handlePlayer(1)
 	go g.handlePlayer(2)
 
+	g.host.send("game:ready\n")
+
 	for g.host.ready == false || g.client.ready == false {
 		time.Sleep(time.Millisecond * 100)
 	}
@@ -29,7 +30,7 @@ func (g *game) start() {
 	g.turn = 1
 	for {
 		println()
-		log.Println("[INFO] - Début de la partie")
+		log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Début de la partie")
 		g.broadcast("game:ready")
 		g.host.ready = false
 		g.client.ready = false
@@ -53,7 +54,7 @@ func (g *game) start() {
 			g.client.send("0\n")
 		}
 
-		log.Println("[INFO] - Partie synchronisée")
+		log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Partie synchronisée")
 		time.Sleep(time.Millisecond * 100)
 	}
 }
@@ -70,15 +71,13 @@ func (g *game) broadcast(msg string) {
 	g.client.channel <- msg
 	if debug {
 		msg = strings.Replace(msg, "\n", "|", -1)
-		log.Println("[BROADCAST] - game -> ", msg)
+		log.Println(Grey+"["+Cyan+"BROADCAST"+Grey+"]"+Reset+"- game -> ", msg)
 	}
 }
 
 func (g *game) handlePlayer(id int) {
 	player := g.getPlayer(id)
 	other := g.getPlayer(3 - id)
-
-	player.send(strconv.Itoa(id) + "\n")
 
 	// Choix des couleurs
 	colorChoice := false
@@ -93,7 +92,7 @@ func (g *game) handlePlayer(id int) {
 				ready := temp[1] == "true\n"
 				if ready {
 					if !player.ready {
-						log.Println("[INFO] - Le joueur ", id, " est prêt")
+						log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Le joueur ", id, " est prêt")
 					}
 					player.ready = true
 				}
@@ -109,7 +108,7 @@ func (g *game) handlePlayer(id int) {
 	player.send("game:ready\n")
 
 	// Partie + Synchro
-	log.Println("[INFO] - Partie commencée - ", id)
+	log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Partie commencée - ", id)
 	for {
 		gameFinished := false
 		for {
@@ -129,7 +128,7 @@ func (g *game) handlePlayer(id int) {
 				gameFinished = temp[1] == "true\n"
 
 				if debug {
-					log.Println("[DEBUG] - Joueur", id, "a joué", played)
+					log.Println(Grey+"["+Green+"DEBUG"+Grey+"]"+Reset+"- Joueur", id, "a joué", played)
 				}
 				if gameFinished {
 					player.ready = true
@@ -160,6 +159,6 @@ func (g *game) handlePlayer(id int) {
 				break
 			}
 		}
-		log.Println("[INFO] - Synchronisation de la partie - ", id)
+		log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Synchronisation de la partie - ", id)
 	}
 }
