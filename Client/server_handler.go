@@ -64,14 +64,11 @@ func (s *server) receive() {
 }
 
 func (g *game) getColor() {
-	log.Println(Grey + "[" + Green + "DEBUG" + Grey + "]" + Reset + "- getColor()")
 	for {
 		select {
 		case message := <-g.server.channel:
-			log.Println(Grey+"["+Green+"DEBUG"+Grey+"]"+Reset+"- getColor() : ", message)
 			if message == "game:ready" {
 				g.server.ready = true
-				log.Println(Grey + "[" + Green + "DEBUG" + Grey + "]" + Reset + "- Le serveur est prêt : getColor()")
 				return
 			} else {
 				g.p2Color, _ = strconv.Atoi(message)

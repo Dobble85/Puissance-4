@@ -103,21 +103,33 @@ func (g *game) colorSelectUpdate() bool {
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyRight) {
 		col = (col + 1) % globalNumColorCol
+		if line*globalNumColorLine+col == g.p2Color {
+			col = (col + 1) % globalNumColorCol
+		}
 		changed = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyLeft) {
 		col = (col - 1 + globalNumColorCol) % globalNumColorCol
+		if line*globalNumColorLine+col == g.p2Color {
+			col = (col - 1 + globalNumColorCol) % globalNumColorCol
+		}
 		changed = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyDown) {
 		line = (line + 1) % globalNumColorLine
+		if line*globalNumColorLine+col == g.p2Color {
+			line = (line + 1) % globalNumColorLine
+		}
 		changed = true
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyUp) {
 		line = (line - 1 + globalNumColorLine) % globalNumColorLine
+		if line*globalNumColorLine+col == g.p2Color {
+			line = (line - 1 + globalNumColorLine) % globalNumColorLine
+		}
 		changed = true
 	}
 

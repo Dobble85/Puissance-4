@@ -47,13 +47,14 @@ func (player *player) receive(server *server) {
 			for i, v := range server.games {
 				if v.host == player || v.client == player {
 					// Send a message to the other player
+					// Delete the game
+					server.games = append(server.games[:i], server.games[i+1:]...)
 					if v.host == player {
 						v.client.send("game:other_player_left\n")
 					} else {
 						v.host.send("game:other_player_left\n")
 					}
-					// Delete the game
-					server.games = append(server.games[:i], server.games[i+1:]...)
+					log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Partie supprimée -", v.name, "("+fmt.Sprint(v.id)+")")
 					break
 				}
 			}
@@ -88,7 +89,6 @@ func (player *player) handle(server *server) {
 						game.client = player
 						player.gameTurn = 2
 						player.send("game:accepted\n")
-						log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Le joueur 2 a rejoint la partie", game.id)
 						game.start()
 						return
 					} else {

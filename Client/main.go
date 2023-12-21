@@ -110,6 +110,7 @@ func main() {
 
 			println("Partie créée avec succès")
 			g.turn = p1Turn
+			g.p2Color = 1
 			break
 
 		} else if choice == 2 {
@@ -163,6 +164,7 @@ func main() {
 			if msg == "game:accepted" { // ?? "game:accepted"
 				println("Connexion à la partie réussie")
 				g.turn = p2Turn
+				g.p1Color = 1
 				g.server.ready = true
 				break
 			} else if msg == "game:full" { // ?? "game:full"

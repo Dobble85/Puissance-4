@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -29,8 +28,6 @@ func (g *game) start() {
 	// Partie
 	g.turn = 1
 	for {
-		println()
-		log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Début de la partie")
 		g.broadcast("game:ready")
 		g.host.ready = false
 		g.client.ready = false
@@ -53,8 +50,6 @@ func (g *game) start() {
 			g.host.send("1\n")
 			g.client.send("0\n")
 		}
-
-		log.Println(Grey + "[" + Cyan + "INFO" + Grey + "]" + Reset + "- Partie synchronisée")
 		time.Sleep(time.Millisecond * 100)
 	}
 }
@@ -91,9 +86,6 @@ func (g *game) handlePlayer(id int) {
 
 				ready := temp[1] == "true\n"
 				if ready {
-					if !player.ready {
-						log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Le joueur ", id, " est prêt")
-					}
 					player.ready = true
 				}
 				other.send(temp[0] + "\n")
@@ -108,14 +100,12 @@ func (g *game) handlePlayer(id int) {
 	player.send("game:ready\n")
 
 	// Partie + Synchro
-	log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Partie commencée - ", id)
 	for {
 		gameFinished := false
 		for {
 			// Partie
 			select {
 			case msg := <-player.channel:
-				fmt.Println("")
 
 				if msg == "game:game_finished" {
 					player.ready = true
@@ -159,6 +149,5 @@ func (g *game) handlePlayer(id int) {
 				break
 			}
 		}
-		log.Println(Grey+"["+Cyan+"INFO"+Grey+"]"+Reset+"- Synchronisation de la partie - ", id)
 	}
 }
